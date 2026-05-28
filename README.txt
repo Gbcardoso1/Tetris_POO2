@@ -8,6 +8,3 @@ Estrutura:
 - Captura de teclado
 - Testes com JUnit
 
-Para executar:
-1. Abra o projeto na IDE (IntelliJ ou Eclipse)
-2. Execute a classe TetrisGame
