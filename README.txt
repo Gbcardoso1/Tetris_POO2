@@ -1,4 +1,4 @@
-Tetris Java
+# Tetris Java
 
 Projeto desenvolvido em Java utilizando Swing para implementação do jogo Tetris em modo single-player.
 
