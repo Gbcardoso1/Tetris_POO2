@@ -1,49 +1,71 @@
 package tetris.ui;
 
+import javax.swing.JButton;
+import tetris.model.Score;
+import tetris.service.ScoreService;
 import javax.swing.JPanel;
-import javax.swing.Timer;
 
 import tetris.model.Piece;
+import tetris.model.Score;
 import tetris.model.Tetromino;
+import tetris.service.ScoreService;
 
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 
-public class GamePanel extends JPanel implements ActionListener {
+public class GamePanel extends JPanel {
+
+    private Piece nextPiece;
+
+    private int score = 0;
+
+    private int level = 1;
+
+    private int gameSpeed = 500;
 
     private final int ROWS = 20;
     private final int COLS = 10;
     private final int BLOCK_SIZE = 30;
 
-    private final int WIDTH = COLS * BLOCK_SIZE;
+    private final int WIDTH = (COLS * BLOCK_SIZE) + 150;
     private final int HEIGHT = ROWS * BLOCK_SIZE;
 
     private int[][] board = new int[ROWS][COLS];
 
-    private Timer timer;
+    private Thread gameThread;
 
+    private boolean running = false;
     private Piece currentPiece;
 
     private boolean gameOver = false;
+    private JButton restartButton;
 
     public GamePanel() {
 
         setPreferredSize(new Dimension(WIDTH, HEIGHT));
         setBackground(Color.BLACK);
         setFocusable(true);
+        setLayout(null);
+
+        restartButton = new JButton("Restart");
+
+        restartButton.setBounds(320, 250, 120, 40);
+
+        restartButton.addActionListener(e -> resetGame());
+
+        add(restartButton);
 
         addKeyListener(new KeyAdapter() {
 
             @Override
             public void keyPressed(KeyEvent e) {
 
-                if (gameOver) return;
+                if (gameOver)
+                    return;
 
                 switch (e.getKeyCode()) {
 
@@ -71,30 +93,48 @@ public class GamePanel extends JPanel implements ActionListener {
 
     public void startGame() {
 
+        nextPiece = Tetromino.getRandomPiece();
+
         spawnPiece();
 
-        timer = new Timer(500, this);
-        timer.start();
-    }
+        running = true;
 
-    @Override
-    public void actionPerformed(ActionEvent e) {
+        gameThread = new Thread(() -> {
 
-        if (!movePiece(0, 1)) {
+            while (running) {
 
-            fixPiece();
+                try {
 
-            clearLines();
+                    Thread.sleep(gameSpeed);
 
-            spawnPiece();
-        }
+                } catch (InterruptedException e) {
 
-        repaint();
+                    e.printStackTrace();
+                }
+
+                if (!movePiece(0, 1)) {
+
+                    fixPiece();
+
+                    int cleared = clearLines();
+
+                    updateScore(cleared);
+
+                    spawnPiece();
+                }
+
+                repaint();
+            }
+        });
+
+        gameThread.start();
     }
 
     private void spawnPiece() {
 
-        currentPiece = Tetromino.getRandomPiece();
+        currentPiece = nextPiece;
+
+        nextPiece = Tetromino.getRandomPiece();
 
         currentPiece.x = 3;
         currentPiece.y = 0;
@@ -102,7 +142,13 @@ public class GamePanel extends JPanel implements ActionListener {
         if (collision(currentPiece.x, currentPiece.y, currentPiece.shape)) {
 
             gameOver = true;
-            timer.stop();
+
+            running = false;
+            String player = javax.swing.JOptionPane.showInputDialog("Player name:");
+
+            Score scoreObj = new Score(player, score);
+
+            new ScoreService().saveScore(scoreObj);
         }
     }
 
@@ -189,7 +235,9 @@ public class GamePanel extends JPanel implements ActionListener {
         }
     }
 
-    private void clearLines() {
+    private int clearLines() {
+
+        int cleared = 0;
 
         for (int row = ROWS - 1; row >= 0; row--) {
 
@@ -198,12 +246,15 @@ public class GamePanel extends JPanel implements ActionListener {
             for (int col = 0; col < COLS; col++) {
 
                 if (board[row][col] == 0) {
+
                     fullLine = false;
                     break;
                 }
             }
 
             if (fullLine) {
+
+                cleared++;
 
                 for (int r = row; r > 0; r--) {
 
@@ -215,23 +266,74 @@ public class GamePanel extends JPanel implements ActionListener {
                 row++;
             }
         }
+
+        return cleared;
+    }
+
+    private void updateScore(int lines) {
+
+        score += lines * 100;
+
+        level = (score / 500) + 1;
+
+        gameSpeed = Math.max(100, 500 - ((level - 1) * 50));
+
     }
 
     @Override
-    protected void paintComponent(Graphics g) {
+protected void paintComponent(Graphics g) {
 
-        super.paintComponent(g);
+    super.paintComponent(g);
 
-        drawBoard(g);
+    g.setColor(Color.WHITE);
 
-        drawPiece(g);
+    g.setFont(new Font("Arial", Font.PLAIN, 18));
 
-        if (gameOver) {
+    g.drawString("Score: " + score, 10, 20);
 
-            g.setColor(Color.WHITE);
-            g.setFont(new Font("Arial", Font.BOLD, 40));
+    g.drawString("Level: " + level, 10, 45);
 
-            g.drawString("GAME OVER", 25, HEIGHT / 2);
+    drawNextPiece(g);
+
+    drawBoard(g);
+
+    drawPiece(g);
+
+    if (gameOver) {
+
+        g.setColor(Color.WHITE);
+
+        g.setFont(new Font("Arial", Font.BOLD, 40));
+
+        g.drawString("GAME OVER", 25, HEIGHT / 2);
+    }
+}
+    private void drawNextPiece(Graphics g) {
+
+        g.setColor(Color.WHITE);
+
+        g.drawString("Next:", 330, 50);
+
+        g.setColor(nextPiece.color);
+
+        for (int row = 0; row < nextPiece.shape.length; row++) {
+
+            for (int col = 0; col < nextPiece.shape[row].length; col++) {
+
+                if (nextPiece.shape[row][col] != 0) {
+
+                    int x = 330 + (col * BLOCK_SIZE);
+                    int y = 70 + (row * BLOCK_SIZE);
+
+                    g.fillRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
+
+                    g.setColor(Color.BLACK);
+
+                    g.drawRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
+
+                    g.setColor(nextPiece.color);
+                }
+            }
         }
     }
 
@@ -249,8 +351,7 @@ public class GamePanel extends JPanel implements ActionListener {
                             col * BLOCK_SIZE,
                             row * BLOCK_SIZE,
                             BLOCK_SIZE,
-                            BLOCK_SIZE
-                    );
+                            BLOCK_SIZE);
 
                     g.setColor(Color.BLACK);
 
@@ -258,8 +359,7 @@ public class GamePanel extends JPanel implements ActionListener {
                             col * BLOCK_SIZE,
                             row * BLOCK_SIZE,
                             BLOCK_SIZE,
-                            BLOCK_SIZE
-                    );
+                            BLOCK_SIZE);
                 }
             }
         }
@@ -287,5 +387,29 @@ public class GamePanel extends JPanel implements ActionListener {
                 }
             }
         }
+    }
+
+    private void resetGame() {
+
+        board = new int[ROWS][COLS];
+
+        score = 0;
+
+        level = 1;
+
+        gameSpeed = 500;
+
+        gameOver = false;
+
+        nextPiece = Tetromino.getRandomPiece();
+
+        spawnPiece();
+
+        requestFocusInWindow();
+
+        running = false;
+
+        startGame();
+        repaint();
     }
 }
