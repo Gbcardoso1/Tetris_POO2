@@ -1,4 +1,4 @@
-package main.java.tetris.game;
+package tetris.service;
 
 public class GameLoop {
     

@@ -1,4 +1,4 @@
-package main.java.tetris.util;
+package tetris.util;
 
 public class Constants {
     
