@@ -56,7 +56,7 @@ public class Board {
                     int boardY = piece.y + row;
 
                     if (boardY >= 0) {
-                        grid[boardY][boardX] = piece.color.getRGB();
+                        grid[boardY][boardX] = piece.getColorRGB();
                     }
                 }
             }

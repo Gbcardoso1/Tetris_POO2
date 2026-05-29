@@ -9,6 +9,8 @@ import tetris.model.Piece;
 import tetris.model.Score;
 import tetris.model.Tetromino;
 import tetris.service.ScoreService;
+import tetris.model.GameState;
+import tetris.service.SaveService;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -43,6 +45,7 @@ public class GamePanel extends JPanel {
 
     private boolean gameOver = false;
     private JButton restartButton;
+    private JButton saveButton;
 
     public GamePanel() {
 
@@ -58,6 +61,14 @@ public class GamePanel extends JPanel {
         restartButton.addActionListener(e -> resetGame());
 
         add(restartButton);
+
+        saveButton = new JButton("Save");
+
+        saveButton.setBounds(320, 310, 120, 40);
+
+        saveButton.addActionListener(e -> saveGame());
+
+        add(saveButton);
 
         addKeyListener(new KeyAdapter() {
 
@@ -144,7 +155,9 @@ public class GamePanel extends JPanel {
             gameOver = true;
 
             running = false;
-            String player = javax.swing.JOptionPane.showInputDialog("Player name:");
+            String player = javax.swing.JOptionPane.showInputDialog(
+                    null,
+                    "Game Over!\nScore: " + score + "\nEnter your name:");
 
             Score scoreObj = new Score(player, score);
 
@@ -228,7 +241,7 @@ public class GamePanel extends JPanel {
                     int boardY = currentPiece.y + row;
 
                     if (boardY >= 0) {
-                        board[boardY][boardX] = currentPiece.color.getRGB();
+                        board[boardY][boardX] = currentPiece.getColorRGB();
                     }
                 }
             }
@@ -281,40 +294,41 @@ public class GamePanel extends JPanel {
     }
 
     @Override
-protected void paintComponent(Graphics g) {
+    protected void paintComponent(Graphics g) {
 
-    super.paintComponent(g);
-
-    g.setColor(Color.WHITE);
-
-    g.setFont(new Font("Arial", Font.PLAIN, 18));
-
-    g.drawString("Score: " + score, 10, 20);
-
-    g.drawString("Level: " + level, 10, 45);
-
-    drawNextPiece(g);
-
-    drawBoard(g);
-
-    drawPiece(g);
-
-    if (gameOver) {
+        super.paintComponent(g);
 
         g.setColor(Color.WHITE);
 
-        g.setFont(new Font("Arial", Font.BOLD, 40));
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
 
-        g.drawString("GAME OVER", 25, HEIGHT / 2);
+        g.drawString("Score: " + score, 10, 20);
+
+        g.drawString("Level: " + level, 10, 45);
+
+        drawNextPiece(g);
+
+        drawBoard(g);
+
+        drawPiece(g);
+
+        if (gameOver) {
+
+            g.setColor(Color.WHITE);
+
+            g.setFont(new Font("Arial", Font.BOLD, 40));
+
+            g.drawString("GAME OVER", 25, HEIGHT / 2);
+        }
     }
-}
+
     private void drawNextPiece(Graphics g) {
 
         g.setColor(Color.WHITE);
 
         g.drawString("Next:", 330, 50);
 
-        g.setColor(nextPiece.color);
+        g.setColor(currentPiece.getColor());
 
         for (int row = 0; row < nextPiece.shape.length; row++) {
 
@@ -331,7 +345,7 @@ protected void paintComponent(Graphics g) {
 
                     g.drawRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
 
-                    g.setColor(nextPiece.color);
+                    g.setColor(currentPiece.getColor());
                 }
             }
         }
@@ -367,7 +381,7 @@ protected void paintComponent(Graphics g) {
 
     private void drawPiece(Graphics g) {
 
-        g.setColor(currentPiece.color);
+        g.setColor(currentPiece.getColor());
 
         for (int row = 0; row < currentPiece.shape.length; row++) {
 
@@ -383,7 +397,7 @@ protected void paintComponent(Graphics g) {
                     g.setColor(Color.BLACK);
                     g.drawRect(x, y, BLOCK_SIZE, BLOCK_SIZE);
 
-                    g.setColor(currentPiece.color);
+                    g.setColor(currentPiece.getColor());
                 }
             }
         }
@@ -410,6 +424,43 @@ protected void paintComponent(Graphics g) {
         running = false;
 
         startGame();
+        repaint();
+    }
+
+    private void saveGame() {
+
+        GameState gameState = new GameState(
+                board,
+                currentPiece,
+                nextPiece,
+                score,
+                level);
+
+        new SaveService().saveGame(gameState);
+
+        System.out.println("Game saved!");
+    }
+
+    public void loadGame() {
+
+        GameState gameState = new SaveService().loadGame();
+
+        if (gameState == null) {
+            return;
+        }
+
+        board = gameState.getBoard();
+
+        currentPiece = gameState.getCurrentPiece();
+
+        nextPiece = gameState.getNextPiece();
+
+        score = gameState.getScore();
+
+        level = gameState.getLevel();
+
+        gameSpeed = Math.max(100, 500 - ((level - 1) * 50));
+
         repaint();
     }
 }
